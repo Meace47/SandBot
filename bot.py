@@ -6,7 +6,7 @@ staged_trucks = {}
 well_trucks = []
 max_well_capacity = 5
 stop_trucks = False  # Controls truck movement
-admin_list = ["admin_username"]  # Replace with actual admin usernames
+admin_list = ["5767285152"]  # Replace with actual admin usernames
 
 def is_admin(update: Update) -> bool:
     return update.effective_user.username in admin_list
@@ -120,7 +120,7 @@ async def send_admin_update(context: ContextTypes.DEFAULT_TYPE, message: str):
 
 def main():
     """Starts the bot application."""
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    app = ApplicationBuilder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_new_messages))
