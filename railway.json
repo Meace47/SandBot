@@ -1,0 +1,8 @@
+{
+  "build": {
+    "base": "python:3.9"
+  },
+  "deploy": {
+    "startCommand": "python bot.py"
+  }
+}
