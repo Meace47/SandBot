@@ -139,4 +139,26 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
+    async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles button clicks for admin commands and staging."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "status":
+        await send_status_update(context)
+    elif query.data == "admin_menu":
+        await send_admin_menu(update, context)
+    elif query.data == "stop":
+        await stop_trucks_command(update, context)
+    elif query.data == "resume":
+        await resume_trucks_command(update, context)
+    elif query.data == "set_4070":
+        await set_4070_slots(update, context)
+    elif query.data.startswith("allow_4070_"):
+        global allowed_4070s
+        allowed_4070s = int(query.data.split("_")[-1])
+        await query.edit_message_text(f"✅ Allowed {allowed_4070s} 4070 trucks at the well.")
+        await send_status_update(context)
+    elif query.data in ["4070", "100", "CI"]:
+        await stage_truck(update, context, query.data)
     main()
