@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-import speech_recognition as sr
 import os
 
 # Data Storage
@@ -10,13 +9,14 @@ max_well_capacity = 5
 allowed_4070s = 0  # Number of 4070s allowed at the well
 stop_trucks = False
 admin_roles = {
-    "main_admins": ["5767285152,7116154394"],  # Full control
-    "dispatchers": ["dispatcher_username"],  # Can move trucks
-    "supervisors": ["supervisor_username"]  # Can only view status
+    "main_admins": [5767285152, 7116154394],  # Full control
+    "dispatchers": [],  # Can move trucks
+    "supervisors": []  # Can only view status
 }
 
 def is_admin(update: Update, role: str) -> bool:
-    return update.effective_user.username in admin_roles.get(role, [])
+    """Check if the user is an admin based on role"""
+    return update.effective_user.id in admin_roles.get(role, [])
 
 async def send_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Shows admin controls for eligible admins."""
@@ -68,30 +68,6 @@ async def send_status_update(context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-async def process_voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processes voice commands for admin controls."""
-    if update.message.voice and is_admin(update, "main_admins"):
-        file = await context.bot.get_file(update.message.voice.file_id)
-        file_path = "voice_command.ogg"
-        await file.download(file_path)
-
-        recognizer = sr.Recognizer()
-        os.system(f"ffmpeg -i {file_path} voice_command.wav -y")
-
-        with sr.AudioFile("voice_command.wav") as source:
-            audio = recognizer.record(source)
-
-        try:
-            command = recognizer.recognize_google(audio).lower()
-            if "stop well" in command:
-                await stop_trucks_command(update, context)
-            elif "resume well" in command:
-                await resume_trucks_command(update, context)
-            elif "call next truck" in command:
-                await call_to_well(update, context)
-        except:
-            await update.message.reply_text("⚠️ Could not recognize command.")
-
 async def call_to_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Moves the next truck to the well if space is available."""
     global well_trucks
@@ -126,20 +102,7 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.callback_query.edit_message_text("⚙️ **Admin Controls:**", reply_markup=InlineKeyboardMarkup(keyboard))
 
-def main():
-    """Starts the bot application."""
-    app = ApplicationBuilder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_voice_command))
-    app.add_handler(MessageHandler(filters.VOICE, process_voice_command))
-    app.add_handler(CallbackQueryHandler(stage_truck, pattern="^(4070|100|CI)$"))
-    app.add_handler(CallbackQueryHandler(button_handler))
-
-    app.run_polling()
-
-if __name__ == "__main__":
-    async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles button clicks for admin commands and staging."""
     query = update.callback_query
     await query.answer()
@@ -161,4 +124,14 @@ if __name__ == "__main__":
         await send_status_update(context)
     elif query.data in ["4070", "100", "CI"]:
         await stage_truck(update, context, query.data)
+
+def main():
+    """Starts the bot application."""
+    app = ApplicationBuilder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.run_polling()
+
+if __name__ == "__main__":
     main()
