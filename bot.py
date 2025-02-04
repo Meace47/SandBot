@@ -15,7 +15,7 @@ admin_roles = {
 }
 
 def is_admin(update: Update, role: str) -> bool:
-    """Check if the user is an admin based on role"""
+    """Check if the user is an admin based on role."""
     return update.effective_user.id in admin_roles.get(role, [])
 
 async def send_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
