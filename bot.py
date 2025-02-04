@@ -2,10 +2,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 # Data Storage
-staged_trucks = {}
+staged_trucks = {"100": [], "4070": []}
 well_trucks = []
 max_well_capacity = 5
-stop_trucks = False  # Controls truck movement
+allowed_4070s = 0  # Number of 4070s allowed at the well
+stop_trucks = False
 admin_list = ["5767285152,7116154394"]  # Replace with actual admin usernames
 
 def is_admin(update: Update) -> bool:
@@ -20,7 +21,7 @@ async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("🟢 Chassis In (CI)", callback_data="CI")]
     ]
     if is_admin(update):
-        keyboard.append([InlineKeyboardButton("⚙️ Admin Commands", callback_data="admin_menu")])
+        keyboard.append([InlineKeyboardButton("⚙️ Admin Controls", callback_data="admin_menu")])
 
     await update.message.reply_text("🚛 Welcome to SandBot! Select your truck type or check the current status.", 
                                     reply_markup=InlineKeyboardMarkup(keyboard))
@@ -47,8 +48,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await stop_trucks_command(update, context)
     elif query.data == "resume":
         await resume_trucks_command(update, context)
-    elif query.data == "call_well":
-        await call_to_well(update, context)
+    elif query.data == "set_4070":
+        await set_4070_slots(update, context)
     elif query.data in ["4070", "100", "CI"]:
         await stage_truck(update, context, query.data)
     elif query.data.startswith("leaving_"):
@@ -58,35 +59,39 @@ async def stage_truck(update: Update, context: ContextTypes.DEFAULT_TYPE, truck_
     """Handles staging trucks when drivers select 4070, 100, or CI."""
     query = update.callback_query
     username = query.from_user.username
-    staged_trucks[username] = truck_type
 
-    await query.edit_message_text(text=f"✅ **{username}** is now staged as **{truck_type}**.")
-    await send_admin_update(context, f"🚛 **{username}** is staged as **{truck_type}**.")
+    if truck_type == "CI":
+        await query.edit_message_text(text=f"✅ **{username}** is staged as **{truck_type}**.")
+        await send_admin_update(context, f"🚛 **{username}** is staged as **{truck_type}**.")
+    else:
+        staged_trucks[truck_type].append(username)
+        await query.edit_message_text(text=f"✅ **{username}** is staged as **{truck_type}**.")
+        await send_admin_update(context, f"🚛 **{username}** is staged as **{truck_type}**.")
 
-async def call_to_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Calls the next staged truck to the well."""
-    if is_admin(update):
-        if len(well_trucks) >= max_well_capacity:
-            await update.message.reply_text("🚧 The well is full! No more trucks can enter.")
-            return
-        
-        if not staged_trucks:
-            await update.message.reply_text("📭 No trucks are currently staged.")
-            return
-        
-        username, truck_status = staged_trucks.popitem()
-        well_trucks.append(username)
+    await check_well_status(context)
 
-        keyboard = [
-            [InlineKeyboardButton("✅ On the Way", callback_data=f"confirm_{username}_{truck_status}"),
-             InlineKeyboardButton("❌ Not Available", callback_data=f"cancel_{username}")]
-        ]
-        await update.message.reply_text(f"🚛 **{username}**, you've been called to the well!\nConfirm your status:", 
-                                        reply_markup=InlineKeyboardMarkup(keyboard))
-        await send_admin_update(context, f"📢 **{username}** has been called to the well!")
+async def check_well_status(context: ContextTypes.DEFAULT_TYPE):
+    """Automatically fills the well with the next 100 when space opens up."""
+    global well_trucks
+
+    if stop_trucks or len(well_trucks) >= max_well_capacity:
+        return  # Stop auto-filling if well is full or stopped
+
+    # Fill well with 100s first
+    while len(well_trucks) < max_well_capacity and staged_trucks["100"]:
+        next_truck = staged_trucks["100"].pop(0)
+        well_trucks.append(next_truck)
+        await send_admin_update(context, f"✅ **{next_truck}** moved to the well.")
+
+    # Allow 4070s only if admins have set a slot
+    while len(well_trucks) < max_well_capacity and allowed_4070s > 0 and staged_trucks["4070"]:
+        next_truck = staged_trucks["4070"].pop(0)
+        well_trucks.append(next_truck)
+        allowed_4070s -= 1
+        await send_admin_update(context, f"✅ **{next_truck}** moved to the well (4070 slot used).")
 
 async def leaving_well(update: Update, context: ContextTypes.DEFAULT_TYPE, leave_type: str):
-    """Handles when a driver leaves the well (Empty or Chassis Out)."""
+    """Handles when a driver leaves the well."""
     query = update.callback_query
     username = query.from_user.username
 
@@ -102,16 +107,26 @@ async def leaving_well(update: Update, context: ContextTypes.DEFAULT_TYPE, leave
         
         await query.edit_message_text(text=f"🚛 **{username}** has left the well as **{leave_status}**.")
         await send_admin_update(context, f"🚛 **{username}** has left the well as **{leave_status}**.")
-    else:
-        await query.edit_message_text(text="⚠️ You are not at the well.")
+        await check_well_status(context)  # Move next truck when one leaves
 
-async def status_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Displays the current truck staging and well status."""
-    staging_info = "\n".join([f"🚛 {u} - {s}" for u, s in staged_trucks.items()]) if staged_trucks else "📭 No trucks staged."
-    well_info = "\n".join([f"🏗 {t}" for t in well_trucks]) if well_trucks else "🏗 No trucks at the well."
-    status_text = f"📊 **Current Status:**\n\n**🚏 Staged Trucks:**\n{staging_info}\n\n**⛽ Well Trucks:**\n{well_info}\n\n**Max Capacity:** {max_well_capacity}\n**Well Status:** {'🚫 STOPPED' if stop_trucks else '✅ ACTIVE'}"
+async def set_4070_slots(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Allows admins to set the number of 4070s that can be at the well."""
+    global allowed_4070s
+    query = update.callback_query
 
-    await update.callback_query.edit_message_text(text=status_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Refresh Status", callback_data="status")]]))
+    # Example: Admins can set 1-3 slots for 4070s
+    keyboard = [[InlineKeyboardButton(str(i), callback_data=f"allow_4070_{i}") for i in range(1, 4)]]
+    await query.edit_message_text("📢 Select the number of 4070 slots allowed:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Displays the admin control menu."""
+    keyboard = [
+        [InlineKeyboardButton("🚫 Stop Well", callback_data="stop"),
+         InlineKeyboardButton("✅ Resume Well", callback_data="resume")],
+        [InlineKeyboardButton("Set 4070 Slots", callback_data="set_4070")],
+        [InlineKeyboardButton("📊 Status", callback_data="status")]
+    ]
+    await update.callback_query.edit_message_text("⚙️ **Admin Controls:**", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def send_admin_update(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Sends an update to all admins."""
@@ -119,7 +134,7 @@ async def send_admin_update(context: ContextTypes.DEFAULT_TYPE, message: str):
         try:
             await context.bot.send_message(chat_id=admin, text=message)
         except:
-            pass  # Ignore errors (e.g., bot is not in a chat with the admin)
+            pass  # Ignore errors
 
 def main():
     """Starts the bot application."""
