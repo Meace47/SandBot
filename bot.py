@@ -115,7 +115,7 @@ async def leave_alias(update: Update, context: CallbackContext):
 
 # Main function to run the bot
 def main():
-    application = Application.builder().token("YOUR_API_TOKEN").build()
+    application = Application.builder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
 
     application.add_handler(CommandHandler("stage", stage))
     application.add_handler(CommandHandler("status", staging_status))
