@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackContext
 
 # In-memory staging system
 staging_areas = {
@@ -10,14 +10,20 @@ staging_areas = {
 
 MAX_WELL_CAPACITY = 5 # Limit for trucks at the well
 
-# Function to handle staging
-async def handle_staging(update: Update, context: CallbackContext):
-    text = update.message.text.strip().lower()
+# Command to stage a truck
+async def stage(update: Update, context: CallbackContext):
+    if len(context.args) == 0:
+        await update.message.reply_text("Usage: /stage [4070 | 100]")
+        return
+
+    truck_type = context.args[0].lower()
+
+    if truck_type not in ["4070", "100"]:
+        await update.message.reply_text("Invalid type! Use 4070 or 100.")
+        return
+
     driver_id = update.message.from_user.id
     driver_name = update.message.from_user.full_name
-
-    if text not in ["4070", "100"]:
-        return # Ignore other messages
 
     # Check if the driver is already staged
     for area in staging_areas:
@@ -26,7 +32,7 @@ async def handle_staging(update: Update, context: CallbackContext):
             return
 
     # Prioritize 100 trucks at the well (keep 5 at all times)
-    if text == "100":
+    if truck_type == "100":
         if len(staging_areas["well"]) < MAX_WELL_CAPACITY:
             staging_areas["well"].append({"id": driver_id, "name": driver_name})
             await update.message.reply_text(f"{driver_name}, you are assigned to THE WELL (Priority: 100). ✅")
@@ -111,14 +117,12 @@ async def leave_alias(update: Update, context: CallbackContext):
 def main():
     application = Application.builder().token("YOUR_API_TOKEN").build()
 
+    application.add_handler(CommandHandler("stage", stage))
     application.add_handler(CommandHandler("status", staging_status))
     application.add_handler(CommandHandler("leave", leave))
     application.add_handler(CommandHandler("lv", leave_alias))
     application.add_handler(CommandHandler("lve", leave_alias))
     application.add_handler(CommandHandler("callwell", callwell))
-    
-    # Handle text messages (4070 or 100)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_staging))
 
     application.run_polling()
 
