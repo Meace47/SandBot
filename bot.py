@@ -6,7 +6,7 @@ staged_trucks = {}
 well_trucks = []
 max_well_capacity = 5
 stop_trucks = False  # Controls truck movement
-admin_list = ["SandMeace"]  # Replace with actual admin usernames
+admin_list = ["5767285152,7116154394"]  # Replace with actual admin usernames
 
 def is_admin(update: Update) -> bool:
     return update.effective_user.username in admin_list
@@ -22,13 +22,8 @@ async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(update):
         keyboard.append([InlineKeyboardButton("⚙️ Admin Commands", callback_data="admin_menu")])
 
-    message_text = "🚛 Welcome to SandBot! Select your truck type or check the current status."
-    
-    # Prevent "Message is not modified" error
-    try:
-        await update.message.reply_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
-    except:
-        pass  # Ignore duplicate errors
+    await update.message.reply_text("🚛 Welcome to SandBot! Select your truck type or check the current status.", 
+                                    reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /start command or when the bot is first opened."""
@@ -54,6 +49,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await resume_trucks_command(update, context)
     elif query.data == "call_well":
         await call_to_well(update, context)
+    elif query.data in ["4070", "100", "CI"]:
+        await stage_truck(update, context, query.data)
+
+async def stage_truck(update: Update, context: ContextTypes.DEFAULT_TYPE, truck_type: str):
+    """Handles staging trucks when drivers select 4070, 100, or CI."""
+    query = update.callback_query
+    username = query.from_user.username
+    staged_trucks[username] = truck_type
+
+    await query.edit_message_text(text=f"✅ **{username}** is now staged as **{truck_type}**.")
+    await send_admin_update(context, f"🚛 **{username}** is staged as **{truck_type}**.")
 
 async def status_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Displays the current truck staging and well status."""
@@ -61,10 +67,7 @@ async def status_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     well_info = "\n".join([f"🏗 {t}" for t in well_trucks]) if well_trucks else "🏗 No trucks at the well."
     status_text = f"📊 **Current Status:**\n\n**🚏 Staged Trucks:**\n{staging_info}\n\n**⛽ Well Trucks:**\n{well_info}\n\n**Max Capacity:** {max_well_capacity}\n**Well Status:** {'🚫 STOPPED' if stop_trucks else '✅ ACTIVE'}"
 
-    try:
-        await update.callback_query.edit_message_text(text=status_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Refresh Status", callback_data="status")]]))
-    except:
-        pass  # Ignore errors when message content is unchanged
+    await update.callback_query.edit_message_text(text=status_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Refresh Status", callback_data="status")]]))
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Displays the admin control menu."""
