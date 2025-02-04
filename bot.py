@@ -6,7 +6,7 @@ staged_trucks = {}
 well_trucks = []
 max_well_capacity = 5
 stop_trucks = False  # Controls truck movement
-admin_list = ["5767285152"]  # Replace with actual admin usernames
+admin_list = ["SandMeace"]  # Replace with actual admin usernames
 
 def is_admin(update: Update) -> bool:
     return update.effective_user.username in admin_list
