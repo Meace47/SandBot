@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+import speech_recognition as sr
 import os
 
 # Data Storage
@@ -68,69 +69,67 @@ async def send_status_update(context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-async def call_to_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Moves the next truck to the well if space is available."""
-    global well_trucks
+async def process_voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processes voice commands for admin controls."""
+    if update.message.voice and is_admin(update, "main_admins"):
+        file = await context.bot.get_file(update.message.voice.file_id)
+        file_path = "voice_command.ogg"
+        await file.download(file_path)
 
-    if stop_trucks or len(well_trucks) >= max_well_capacity:
-        return
+        recognizer = sr.Recognizer()
+        os.system(f"ffmpeg -i {file_path} voice_command.wav -y")
 
-    if staged_trucks["100"]:
-        next_truck = staged_trucks["100"].pop(0)
-        well_trucks.append(next_truck)
+        with sr.AudioFile("voice_command.wav") as source:
+            audio = recognizer.record(source)
+
+        try:
+            command = recognizer.recognize_google(audio).lower()
+            if "stop well" in command:
+                await stop_trucks_command(update, context)
+            elif "resume well" in command:
+                await resume_trucks_command(update, context)
+            elif "call next truck" in command:
+                await call_to_well(update, context)
+        except:
+            await update.message.reply_text("⚠️ Could not recognize command.")
+
+async def remove_truck(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Allows admins to manually remove a truck from staging or well."""
+    if is_admin(update, "main_admins") or is_admin(update, "dispatchers"):
+        try:
+            username = context.args[0]
+            staged_trucks["100"] = [t for t in staged_trucks["100"] if username not in t]
+            staged_trucks["4070"] = [t for t in staged_trucks["4070"] if username not in t]
+            well_trucks.remove(username) if username in well_trucks else None
+            await update.message.reply_text(f"✅ **{username}** has been removed.")
+            await send_status_update(context)
+        except:
+            await update.message.reply_text("⚠️ Usage: /remove_truck [username]")
+
+async def leave_staging(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Allows drivers to remove themselves from staging."""
+    username = update.effective_user.username
+    staged_trucks["100"] = [t for t in staged_trucks["100"] if username not in t]
+    staged_trucks["4070"] = [t for t in staged_trucks["4070"] if username not in t]
+    await update.message.reply_text(f"✅ **{username}** has left staging.")
+
+async def leave_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Allows drivers to remove themselves from the well."""
+    username = update.effective_user.username
+    if username in well_trucks:
+        well_trucks.remove(username)
+        await update.message.reply_text(f"✅ **{username}** has left the well.")
         await send_status_update(context)
-
-async def stop_trucks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Stops well operations."""
-    global stop_trucks
-    stop_trucks = True
-    await send_status_update(context)
-
-async def resume_trucks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Resumes well operations."""
-    global stop_trucks
-    stop_trucks = False
-    await send_status_update(context)
-
-async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Displays the admin control menu."""
-    keyboard = [
-        [InlineKeyboardButton("🚫 Stop Well", callback_data="stop"),
-         InlineKeyboardButton("✅ Resume Well", callback_data="resume")],
-        [InlineKeyboardButton("Set 4070 Slots", callback_data="set_4070")],
-        [InlineKeyboardButton("📊 Status", callback_data="status")]
-    ]
-    await update.callback_query.edit_message_text("⚙️ **Admin Controls:**", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles button clicks for admin commands and staging."""
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "status":
-        await send_status_update(context)
-    elif query.data == "admin_menu":
-        await send_admin_menu(update, context)
-    elif query.data == "stop":
-        await stop_trucks_command(update, context)
-    elif query.data == "resume":
-        await resume_trucks_command(update, context)
-    elif query.data == "set_4070":
-        await set_4070_slots(update, context)
-    elif query.data.startswith("allow_4070_"):
-        global allowed_4070s
-        allowed_4070s = int(query.data.split("_")[-1])
-        await query.edit_message_text(f"✅ Allowed {allowed_4070s} 4070 trucks at the well.")
-        await send_status_update(context)
-    elif query.data in ["4070", "100", "CI"]:
-        await stage_truck(update, context, query.data)
 
 def main():
     """Starts the bot application."""
     app = ApplicationBuilder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(CommandHandler("remove_truck", remove_truck))
+    app.add_handler(CommandHandler("leave_staging", leave_staging))
+    app.add_handler(CommandHandler("leave_well", leave_well))
+    app.add_handler(MessageHandler(filters.VOICE, process_voice_command))
     app.run_polling()
 
 if __name__ == "__main__":
