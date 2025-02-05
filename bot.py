@@ -91,12 +91,21 @@ async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Function to display staging info with numbers
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "📋 **Staging Information:**\n"
-"
-    
-    msg += "**WELL:**
-"
+    msg = "📋 **Staging Information:**\n\n"
+
+    msg += "**WELL:**\n"
     for i, truck in enumerate(staging_data["well"], 1):
+        msg += f"🔵 #{i}: Truck {truck}\n"
+
+    msg += "\n**100 Mesh Staging:**\n"
+    for i, truck in enumerate(staging_data["100"], 1):
+        msg += f"🟢 #{i}: Truck {truck}\n"
+
+    msg += "\n**4070 Staging:**\n"
+    for i, truck in enumerate(staging_data["4070"], 1):
+        msg += f"🟠 #{i}: Truck {truck}\n"
+
+    await update.message.reply_text(msg)
         msg += f"ðŸ”µ #{i}: Truck {truck}
 "
 
