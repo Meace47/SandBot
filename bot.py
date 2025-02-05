@@ -14,7 +14,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🚛 4070", callback_data="4070")],
         [InlineKeyboardButton("🚚 100", callback_data="100")],
-        [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # New status button
+        [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type or view the current status:", reply_markup=reply_markup)
@@ -35,6 +35,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🛑 Yes, Chassis Out", callback_data=f"chassis_out_{truck_type}")],
             [InlineKeyboardButton("❌ No, Just Stage", callback_data=f"stage_{truck_type}")],
             [InlineKeyboardButton("⬅️ Back", callback_data="back")]
+            [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
@@ -81,11 +82,15 @@ async def refresh_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg += f"🟠 **4070 Trucks Staged:** {len(staging_data['4070'])}\n"
     msg += f"🟢 **100 Mesh Trucks Staged:** {len(staging_data['100'])}\n"
 
-    keyboard = [[InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")]]
+        keyboard = [
+        [InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back")],
+        [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always available
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
+
     await query.edit_message_text(msg, reply_markup=reply_markup)
-    
+
 # Function to process chassis out
 async def process_chassis_out(query, truck_type, user_id, context):
     truck_entry = f"{user_id} (CO)"  # Mark with CO
