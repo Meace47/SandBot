@@ -14,7 +14,7 @@ user_id = update.message.from_user.id
 is_admin = user_id in admin_ids  # Check if user is admin
 
     # Buttons for all users
-    keyboard = [
+keyboard = [
         [InlineKeyboardButton("🚛 4070", callback_data="4070")],
         [InlineKeyboardButton("🚚 100", callback_data="100")],
         [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
