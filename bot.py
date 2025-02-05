@@ -106,20 +106,15 @@ async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"🟠 #{i}: Truck {truck}\n"
 
     await update.message.reply_text(msg)
-        msg += f"ðŸ”µ #{i}: Truck {truck}
-"
+        msg += f"ðŸ”µ #{i}: Truck {truck}"
 
-    msg += "**100 Mesh Staging:**
-"
+    msg += "**100 Mesh Staging:**"
     for i, truck in enumerate(staging_data["100"], 1):
-        msg += f"ðŸŸ¢ #{i}: Truck {truck}
-"
+        msg += f"ðŸŸ¢ #{i}: Truck {truck}"
 
-    msg += "**4070 Staging:**
-"
+    msg += "**4070 Staging:**"
     for i, truck in enumerate(staging_data["4070"], 1):
-        msg += f"ðŸŸ  #{i}: Truck {truck}
-"
+        msg += f"ðŸŸ  #{i}: Truck {truck}"
 
     await update.message.reply_text(msg)
 
