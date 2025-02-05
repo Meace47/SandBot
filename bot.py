@@ -1,135 +1,104 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-import speech_recognition as sr
-import os
+import asyncio
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Data Storage
-staged_trucks = {"100": [], "4070": []}
-well_trucks = []
-max_well_capacity = 5
-allowed_4070s = 0  # Number of 4070s allowed at the well
-stop_trucks = False
-admin_roles = {
-    "main_admins": [5767285152, 7116154394],  # Full control
-    "dispatchers": [],  # Can move trucks
-    "supervisors": []  # Can only view status
-}
+TOKEN = "YOUR_BOT_TOKEN"
 
-def is_admin(update: Update, role: str) -> bool:
-    """Check if the user is an admin based on role."""
-    return update.effective_user.id in admin_roles.get(role, [])
+# Dictionary to store truck staging info
+staging_data = {"4070": [], "100": [], "well": []}
 
-async def send_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows admin controls for eligible admins."""
-    if is_admin(update, "main_admins") or is_admin(update, "dispatchers"):
-        keyboard = [
-            [InlineKeyboardButton("🚫 Stop Well", callback_data="stop"),
-             InlineKeyboardButton("✅ Resume Well", callback_data="resume")],
-            [InlineKeyboardButton("Set 4070 Slots", callback_data="set_4070")],
-            [InlineKeyboardButton("📊 Status", callback_data="status")]
-        ]
-        await update.message.reply_text("⚙️ **Admin Controls:**", reply_markup=InlineKeyboardMarkup(keyboard))
-
+# Function to show main menu buttons
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /start command or when the bot is first opened."""
-    await send_admin_menu(update, context)
-    await send_main_menu(update, context)
-
-async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Sends the main menu (buttons for selecting truck type and status)."""
     keyboard = [
-        [InlineKeyboardButton("📊 Status", callback_data="status")],
-        [InlineKeyboardButton("🚛 4070", callback_data="4070"),
-         InlineKeyboardButton("🔶 100", callback_data="100"),
-         InlineKeyboardButton("🟢 Chassis In (CI)", callback_data="CI")]
+        [InlineKeyboardButton("ðŸš› 4070", callback_data="4070")],
+        [InlineKeyboardButton("ðŸ›» 100", callback_data="100")]
     ]
-    await update.message.reply_text("🚛 Welcome to SandBot! Select your truck type or check the current status.", 
-                                    reply_markup=InlineKeyboardMarkup(keyboard))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Welcome! Choose your truck type:", reply_markup=reply_markup)
 
-async def stage_truck(update: Update, context: ContextTypes.DEFAULT_TYPE, truck_type: str):
-    """Handles staging trucks when drivers select 4070, 100, or CI."""
+# Function to handle button clicks
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    username = query.from_user.username
+    await query.answer()  # Acknowledge the button press
+    truck_type = query.data
 
-    truck_number = len(staged_trucks[truck_type]) + 1
-    staged_trucks[truck_type].append(f"{truck_type}-{truck_number} ({username})")
+    if truck_type in ["4070", "100"]:
+        keyboard = [
+            [InlineKeyboardButton("ðŸ›‘ Chassis Out", callback_data="chassis_out")],
+            [InlineKeyboardButton("â¬…ï¸ Back", callback_data="back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
-    await query.edit_message_text(text=f"✅ **{username}** is staged as **{truck_type}-{truck_number}**.")
-    await send_status_update(context)
+    elif truck_type == "chassis_out":
+        await query.edit_message_text("âœ… You have successfully **Chassis Out**. Thank you!")
 
-async def send_status_update(context: ContextTypes.DEFAULT_TYPE):
-    """Automatically sends updates when staging or well changes."""
-    staging_list = "\n".join([f"🚏 {truck}" for truck in staged_trucks["100"] + staged_trucks["4070"]]) or "📭 No trucks staged."
-    well_list = "\n".join([f"🏗 {truck}" for truck in well_trucks]) or "🏗 No trucks at the well."
-    
-    message = f"📊 **Current Status:**\n\n**🚏 Staging List:**\n{staging_list}\n\n**⛽ Well List:**\n{well_list}"
-    for admin in admin_roles["main_admins"] + admin_roles["dispatchers"] + admin_roles["supervisors"]:
-        try:
-            await context.bot.send_message(chat_id=admin, text=message)
-        except:
-            pass
+    elif truck_type == "back":
+        await start(update, context)
 
-async def process_voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processes voice commands for admin controls."""
-    if update.message.voice and is_admin(update, "main_admins"):
-        file = await context.bot.get_file(update.message.voice.file_id)
-        file_path = "voice_command.ogg"
-        await file.download(file_path)
+# Function to stage a truck
+async def stage(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    truck_type = context.args[0] if context.args else None
+    user_id = update.message.from_user.id
 
-        recognizer = sr.Recognizer()
-        os.system(f"ffmpeg -i {file_path} voice_command.wav -y")
+    if truck_type in ["4070", "100"]:
+        if user_id not in staging_data[truck_type]:
+            staging_data[truck_type].append(user_id)
+            await update.message.reply_text(f"âœ… You have been staged as {truck_type}.")
+        else:
+            await update.message.reply_text("âš ï¸ You are already staged.")
+    else:
+        await update.message.reply_text("âŒ Invalid truck type. Use `/stage 4070` or `/stage 100`.")
 
-        with sr.AudioFile("voice_command.wav") as source:
-            audio = recognizer.record(source)
+# Function to remove a truck from staging
+async def leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    removed = False
 
-        try:
-            command = recognizer.recognize_google(audio).lower()
-            if "stop well" in command:
-                await stop_trucks_command(update, context)
-            elif "resume well" in command:
-                await resume_trucks_command(update, context)
-            elif "call next truck" in command:
-                await call_to_well(update, context)
-        except:
-            await update.message.reply_text("⚠️ Could not recognize command.")
+    for key in staging_data.keys():
+        if user_id in staging_data[key]:
+            staging_data[key].remove(user_id)
+            removed = True
+            await update.message.reply_text(f"âœ… You have left the {key} staging area.")
 
-async def remove_truck(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Allows admins to manually remove a truck from staging or well."""
-    if is_admin(update, "main_admins") or is_admin(update, "dispatchers"):
-        try:
-            username = context.args[0]
-            staged_trucks["100"] = [t for t in staged_trucks["100"] if username not in t]
-            staged_trucks["4070"] = [t for t in staged_trucks["4070"] if username not in t]
-            well_trucks.remove(username) if username in well_trucks else None
-            await update.message.reply_text(f"✅ **{username}** has been removed.")
-            await send_status_update(context)
-        except:
-            await update.message.reply_text("⚠️ Usage: /remove_truck [username]")
+    if not removed:
+        await update.message.reply_text("âš ï¸ You are not staged.")
 
-async def leave_staging(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Allows drivers to remove themselves from staging."""
-    username = update.effective_user.username
-    staged_trucks["100"] = [t for t in staged_trucks["100"] if username not in t]
-    staged_trucks["4070"] = [t for t in staged_trucks["4070"] if username not in t]
-    await update.message.reply_text(f"✅ **{username}** has left staging.")
+# Function to call trucks to the well
+async def callwell(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    num_trucks = int(context.args[0]) if context.args else 1
 
-async def leave_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Allows drivers to remove themselves from the well."""
-    username = update.effective_user.username
-    if username in well_trucks:
-        well_trucks.remove(username)
-        await update.message.reply_text(f"✅ **{username}** has left the well.")
-        await send_status_update(context)
+    if len(staging_data["100"]) >= num_trucks:
+        called_trucks = staging_data["100"][:num_trucks]
+        staging_data["well"].extend(called_trucks)
+        del staging_data["100"][:num_trucks]
 
+        await update.message.reply_text(f"âœ… {num_trucks} trucks have been called to the well!")
+    else:
+        await update.message.reply_text("âš ï¸ Not enough trucks staged to move to the well.")
+
+# Function to display staging info
+async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = "ðŸ“‹ **Staging Information:**
+"
+    for key, trucks in staging_data.items():
+        msg += f"âž¡ï¸ **{key.upper()}**: {len(trucks)} trucks staged
+"
+
+    await update.message.reply_text(msg)
+
+# Main function to run the bot
 def main():
-    """Starts the bot application."""
-    app = ApplicationBuilder().token("8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M").build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("remove_truck", remove_truck))
-    app.add_handler(CommandHandler("leave_staging", leave_staging))
-    app.add_handler(CommandHandler("leave_well", leave_well))
-    app.add_handler(MessageHandler(filters.VOICE, process_voice_command))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(CommandHandler("stage", stage))
+    app.add_handler(CommandHandler("leave", leave))
+    app.add_handler(CommandHandler("callwell", callwell))
+    app.add_handler(CommandHandler("staging", staging_info))
+
+    print("Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
