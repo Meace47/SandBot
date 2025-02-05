@@ -79,11 +79,10 @@ async def callwell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Function to display staging info
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
- msg = "📋 **Staging Information:**\n"
-"
+    msg = "📋 **Staging Information:**\n"
+    
     for key, trucks in staging_data.items():
-        msg += f"âž¡ï¸ **{key.upper()}**: {len(trucks)} trucks staged
-"
+        msg += f"➡️ **{key.upper()}**: {len(trucks)} trucks staged\n"
 
     await update.message.reply_text(msg)
 
