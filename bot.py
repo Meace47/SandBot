@@ -82,7 +82,7 @@ async def refresh_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg += f"🟠 **4070 Trucks Staged:** {len(staging_data['4070'])}\n"
     msg += f"🟢 **100 Mesh Trucks Staged:** {len(staging_data['100'])}\n"
 
-        keyboard = [
+        keyboard =
         [InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")],
         [InlineKeyboardButton("⬅️ Back", callback_data="back")],
         [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always available
