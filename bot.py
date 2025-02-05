@@ -18,7 +18,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type:", reply_markup=reply_markup)
 
-# Function to handle button clicks
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -27,39 +26,53 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if truck_type in ["4070", "100"]:
         keyboard = [
-            [InlineKeyboardButton("ðŸ›‘ Chassis Out", callback_data=f"chassis_out_{truck_type}")],
-            [InlineKeyboardButton("â¬…ï¸ Back", callback_data="back")]
+            [InlineKeyboardButton("🛑 Yes, Chassis Out", callback_data=f"chassis_out_{truck_type}")],
+            [InlineKeyboardButton("❌ No, Just Stage", callback_data=f"stage_{truck_type}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
-    elif "chassis_out" in truck_type:
-        _, selected_type = truck_type.split("_")
-        await process_chassis_out(query, selected_type, user_id, context)
+    elif truck_type.startswith("chassis_out_"):
+        try:
+            _, selected_type = truck_type.split("_", 1)  
+            await process_chassis_out(query, selected_type, user_id, context)
+        except ValueError:
+            await query.edit_message_text("⚠️ Error processing your request. Please try again.")
 
-    elif query.data == "leave_well":
+    elif truck_type.startswith("stage_"):
+        try:
+            _, selected_type = truck_type.split("_", 1)  
+            await process_staging(query, selected_type, user_id, context)  # New function to handle staging
+        except ValueError:
+            await query.edit_message_text("⚠️ Error processing your request. Please try again.")
+
+    elif truck_type == "leave_well":
         await process_leave_well(query, user_id, context)
 
-    elif query.data == "back":
-        await start(update, context)
+    elif truck_type == "back":
+        await start(update, context
 
-# Function to process chassis out
 async def process_chassis_out(query, truck_type, user_id, context):
+    truck_entry = f"{user_id} (CO)"  # Mark with CO
+
     if len(staging_data["well"]) < WELL_LIMIT:
-        staging_data["well"].append(user_id)
-        await query.edit_message_text(f"âœ… You have been sent to the well as {truck_type} (CO).")
+        staging_data["well"].append(truck_entry)
+        await query.edit_message_text(f"✅ You have been sent to the well as {truck_type} (CO).")
     else:
-        staging_data[truck_type].append(user_id)
-        await query.edit_message_text(f"ðŸš§ Well is full. You are staged as {truck_type}.")
+        staging_data[truck_type].append(truck_entry)
+        await query.edit_message_text(f"🚧 Well is full. You are staged as {truck_type} (CO).")
 
 # Function to process leaving well
 async def process_leave_well(query, user_id, context):
-    if user_id in staging_data["well"]:
-        staging_data["well"].remove(user_id)
-        await query.edit_message_text("âœ… You have left the well.")
-        await move_next_to_well(context)
-    else:
-        await query.edit_message_text("âš ï¸ You are not at the well.")
+    for i, truck in enumerate(staging_data["well"]):
+        if str(user_id) in truck:  # Find the truck in the well
+            staging_data["well"].pop(i)  # Remove truck from well
+            await query.edit_message_text("✅ You have left the well.")
+            await move_next_to_well(context)  # Move next truck in if available
+            return
+
+    await query.edit_message_text("⚠️ You are not at the well.")
 
 # Function to move the next truck to the well
 async def move_next_to_well(context):
@@ -81,13 +94,13 @@ async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
             selected_truck = truck_list[truck_num - 1]
             if len(staging_data["well"]) < WELL_LIMIT:
                 staging_data["well"].append(selected_truck)
-                await update.message.reply_text(f"âœ… Truck #{truck_num} added to the well.")
+                await update.message.reply_text(f"✅ Truck #{truck_num} added to the well.")
             else:
-                await update.message.reply_text("ðŸš§ Well is full!")
+                await update.message.reply_text("🚧 Well is full!")
         else:
-            await update.message.reply_text("âš ï¸ Invalid truck number.")
+            await update.message.reply_text("⚠️ Invalid truck number.")
     else:
-        await update.message.reply_text("âŒ You are not an admin.")
+        await update.message.reply_text("❌ You are not an admin.")
 
 # Function to display staging info with numbers
 # Function to display staging info with numbers
