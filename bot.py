@@ -87,7 +87,7 @@ keyboard = [
     [InlineKeyboardButton("⬅️ Back", callback_data="back")],
     [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always available
 ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(msg, reply_markup=reply_markup)
 
