@@ -10,15 +10,20 @@ WELL_LIMIT = 5
 admin_ids = [5767285152, 7116154394]  # Admin Telegram IDs
 
 # Function to display truck options
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    is_admin = user_id in admin_ids  # Check if user is admin
+
+    # Buttons for all users
     keyboard = [
         [InlineKeyboardButton("🚛 4070", callback_data="4070")],
         [InlineKeyboardButton("🚚 100", callback_data="100")],
         [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
     ]
+    keyboard.append([InlineKeyboardButton("🔧 Admin Panel", callback_data="admin_panel")])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type or view the current status:", reply_markup=reply_markup)
-    
+
 # Function to handle button clicks
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -28,6 +33,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if truck_type == "view_status":
         await view_status(update, context)
+    elif truck_type == "admin_panel":
+        await admin_panel(update, context)  # Function to show admin options
+       if user_id not in admin_ids:
+        await update.callback_query.edit_message_text("❌ You are not an admin.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("➕ Add Truck to Well", callback_data="add_truck_well")],
+        [InlineKeyboardButton("➖ Remove Truck from Well", callback_data="remove_truck_well")],
+        [InlineKeyboardButton("🟠 Add Truck to 4070 Staging", callback_data="add_truck_4070")],
+        [InlineKeyboardButton("🟢 Add Truck to 100 Mesh Staging", callback_data="add_truck_100")],
+        [InlineKeyboardButton("➖ Remove Truck from Staging", callback_data="remove_truck_staging")],
+        [InlineKeyboardButton("🗑️ Clear Staging", callback_data="clear_staging")],
+        [InlineKeyboardButton("🔒 Lock Well", callback_data="lock_well")],
+        [InlineKeyboardButton("🔓 Unlock Well", callback_data="unlock_well")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back")]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.callback_query.edit_message_text("🔧 **Admin Controls**\nSelect an option below:", reply_markup=reply_markup)
     elif truck_type == "refresh_status":
         await refresh_status(update, context)
     elif truck_type in ["4070", "100"]:
@@ -245,6 +270,69 @@ async def unlock_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("ðŸ”“ Well is now **unlocked**. Trucks can enter again.")
     else:
         await update.message.reply_text("âŒ You are not an admin.")
+
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.callback_query.from_user.id
+
+    if user_id not in admin_ids:
+        await update.callback_query.edit_message_text("❌ You are not an admin.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("➕ Add Truck to Well", callback_data="add_truck_well")],
+        [InlineKeyboardButton("➖ Remove Truck from Well", callback_data="remove_truck_well")],
+        [InlineKeyboardButton("🟠 Add Truck to 4070 Staging", callback_data="add_truck_4070")],
+        [InlineKeyboardButton("🟢 Add Truck to 100 Mesh Staging", callback_data="add_truck_100")],
+        [InlineKeyboardButton("➖ Remove Truck from Staging", callback_data="remove_truck_staging")],
+        [InlineKeyboardButton("🗑️ Clear Staging", callback_data="clear_staging")],
+        [InlineKeyboardButton("🔒 Lock Well", callback_data="lock_well")],
+        [InlineKeyboardButton("🔓 Unlock Well", callback_data="unlock_well")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back")]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.callback_query.edit_message_text("🔧 **Admin Controls**\nSelect an option below:", reply_markup=reply_markup)
+
+async def add_truck_to_staging(update: Update, context: ContextTypes.DEFAULT_TYPE, truck_type: str):
+    user_id = update.callback_query.from_user.id
+
+    if user_id not in admin_ids:
+        await update.callback_query.edit_message_text("❌ You are not an admin.")
+        return
+
+    truck_entry = f"Admin_Added_Truck_{len(staging_data[truck_type]) + 1}"  # Auto-numbered truck
+    staging_data[truck_type].append(truck_entry)
+    
+    await update.callback_query.edit_message_text(f"✅ A truck has been added to {truck_type} staging.")
+
+async def remove_truck_from_staging(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.callback_query.from_user.id
+
+    if user_id not in admin_ids:
+        await update.callback_query.edit_message_text("❌ You are not an admin.")
+        return
+
+    if staging_data["4070"] or staging_data["100"]:
+        removed_truck_4070 = staging_data["4070"].pop(0) if staging_data["4070"] else "None"
+        removed_truck_100 = staging_data["100"].pop(0) if staging_data["100"] else "None"
+        await update.callback_query.edit_message_text(
+            f"🚛 Removed Truck: \n🟠 4070: {removed_truck_4070}\n🟢 100 Mesh: {removed_truck_100}"
+        )
+    else:
+        await update.callback_query.edit_message_text("⚠️ No trucks to remove from staging.")
+
+async def clear_staging(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.callback_query.from_user.id
+
+    if user_id not in admin_ids:
+        await update.callback_query.edit_message_text("❌ You are not an admin.")
+        return
+
+    staging_data["4070"].clear()
+    staging_data["100"].clear()
+
+    await update.callback_query.edit_message_text("🗑️ Staging has been cleared.")
+
 
 # Main function to run the bot
 def main():
