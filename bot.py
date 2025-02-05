@@ -10,8 +10,8 @@ WELL_LIMIT = 5
 admin_ids = [5767285152, 7116154394]  # Admin Telegram IDs
 
 # Function to display truck options
-    user_id = update.message.from_user.id
-    is_admin = user_id in admin_ids  # Check if user is admin
+user_id = update.message.from_user.id
+is_admin = user_id in admin_ids  # Check if user is admin
 
     # Buttons for all users
     keyboard = [
@@ -56,13 +56,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif truck_type == "refresh_status":
         await refresh_status(update, context)
     elif truck_type in ["4070", "100"]:
-        keyboard = [
+    keyboard = [
             [InlineKeyboardButton("🛑 Yes, Chassis Out", callback_data=f"chassis_out_{truck_type}")],
             [InlineKeyboardButton("❌ No, Just Stage", callback_data=f"stage_{truck_type}")],
             [InlineKeyboardButton("⬅️ Back", callback_data="back")]
             [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
     elif truck_type.startswith("chassis_out_"):
