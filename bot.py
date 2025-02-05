@@ -91,7 +91,7 @@ async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Function to display staging info with numbers
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "ðŸ“‹ **Staging Information:**
+    msg = "📋 **Staging Information:**\n"
 "
     
     msg += "**WELL:**
