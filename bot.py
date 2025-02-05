@@ -19,7 +19,7 @@ keyboard = [
         [InlineKeyboardButton("🚚 100", callback_data="100")],
         [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
     ]
-    keyboard.append([InlineKeyboardButton("🔧 Admin Panel", callback_data="admin_panel")])
+keyboard.append([InlineKeyboardButton("🔧 Admin Panel", callback_data="admin_panel")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type or view the current status:", reply_markup=reply_markup)
@@ -39,7 +39,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text("❌ You are not an admin.")
         return
 
-    keyboard = [
+keyboard = [
         [InlineKeyboardButton("➕ Add Truck to Well", callback_data="add_truck_well")],
         [InlineKeyboardButton("➖ Remove Truck from Well", callback_data="remove_truck_well")],
         [InlineKeyboardButton("🟠 Add Truck to 4070 Staging", callback_data="add_truck_4070")],
@@ -56,12 +56,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif truck_type == "refresh_status":
         await refresh_status(update, context)
     elif truck_type in ["4070", "100"]:
-    keyboard = [
+keyboard = [
             [InlineKeyboardButton("🛑 Yes, Chassis Out", callback_data=f"chassis_out_{truck_type}")],
             [InlineKeyboardButton("❌ No, Just Stage", callback_data=f"stage_{truck_type}")],
             [InlineKeyboardButton("⬅️ Back", callback_data="back")]
             [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
-        ]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
@@ -89,8 +89,8 @@ async def view_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg += f"🟠 **4070 Trucks Staged:** {len(staging_data['4070'])}\n"
     msg += f"🟢 **100 Mesh Trucks Staged:** {len(staging_data['100'])}\n"
 
-    keyboard = [[InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+keyboard = [[InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")]]
+reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(msg, reply_markup=reply_markup)
 
@@ -278,7 +278,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text("❌ You are not an admin.")
         return
 
-    keyboard = [
+keyboard = [
         [InlineKeyboardButton("➕ Add Truck to Well", callback_data="add_truck_well")],
         [InlineKeyboardButton("➖ Remove Truck from Well", callback_data="remove_truck_well")],
         [InlineKeyboardButton("🟠 Add Truck to 4070 Staging", callback_data="add_truck_4070")],
