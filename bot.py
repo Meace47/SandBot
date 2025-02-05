@@ -1,13 +1,14 @@
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
 
 TOKEN = "8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M"
 
-# Dictionary to store truck staging info
+# Truck staging and well management
 staging_data = {"4070": [], "100": [], "well": []}
+WELL_LIMIT = 5
 
-# Function to show main menu buttons
+# Function to display truck options
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("ðŸš› 4070", callback_data="4070")],
@@ -19,71 +20,65 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Function to handle button clicks
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()  # Acknowledge the button press
+    await query.answer()
+    user_id = query.from_user.id
     truck_type = query.data
 
     if truck_type in ["4070", "100"]:
         keyboard = [
-            [InlineKeyboardButton("ðŸ›‘ Chassis Out", callback_data="chassis_out")],
+            [InlineKeyboardButton("ðŸ›‘ Chassis Out", callback_data=f"chassis_out_{truck_type}")],
             [InlineKeyboardButton("â¬…ï¸ Back", callback_data="back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
-    elif truck_type == "chassis_out":
-        await query.edit_message_text("âœ… You have successfully **Chassis Out**. Thank you!")
+    elif "chassis_out" in truck_type:
+        _, selected_type = truck_type.split("_")
+        await process_chassis_out(query, selected_type, user_id, context)
 
-    elif truck_type == "back":
+    elif query.data == "leave_well":
+        await process_leave_well(query, user_id, context)
+
+    elif query.data == "back":
         await start(update, context)
 
-# Function to stage a truck
-async def stage(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    truck_type = context.args[0] if context.args else None
-    user_id = update.message.from_user.id
-
-    if truck_type in ["4070", "100"]:
-        if user_id not in staging_data[truck_type]:
-            staging_data[truck_type].append(user_id)
-            await update.message.reply_text(f"âœ… You have been staged as {truck_type}.")
-        else:
-            await update.message.reply_text("âš ï¸ You are already staged.")
+# Function to process chassis out
+async def process_chassis_out(query, truck_type, user_id, context):
+    if len(staging_data["well"]) < WELL_LIMIT:
+        staging_data["well"].append((user_id, f"{truck_type} (CO)"))
+        await query.edit_message_text(f"âœ… You have been sent to the well as {truck_type} (CO).")
     else:
-        await update.message.reply_text("âŒ Invalid truck type. Use `/stage 4070` or `/stage 100`.")
+        staging_data[truck_type].append(user_id)
+        await query.edit_message_text(f"ðŸš§ Well is full. You are staged as {truck_type}.")
 
-# Function to remove a truck from staging
-async def leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    removed = False
+# Function to process leaving well
+async def process_leave_well(query, user_id, context):
+    if user_id in [t[0] for t in staging_data["well"]]:
+        staging_data["well"] = [t for t in staging_data["well"] if t[0] != user_id]
+        await query.edit_message_text("âœ… You have left the well.")
 
-    for key in staging_data.keys():
-        if user_id in staging_data[key]:
-            staging_data[key].remove(user_id)
-            removed = True
-            await update.message.reply_text(f"âœ… You have left the {key} staging area.")
-
-    if not removed:
-        await update.message.reply_text("âš ï¸ You are not staged.")
-
-# Function to call trucks to the well
-async def callwell(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    num_trucks = int(context.args[0]) if context.args else 1
-
-    if len(staging_data["100"]) >= num_trucks:
-        called_trucks = staging_data["100"][:num_trucks]
-        staging_data["well"].extend(called_trucks)
-        del staging_data["100"][:num_trucks]
-
-        await update.message.reply_text(f"âœ… {num_trucks} trucks have been called to the well!")
+        # Automatically move the next truck to the well
+        await move_next_to_well(context)
     else:
-        await update.message.reply_text("âš ï¸ Not enough trucks staged to move to the well.")
+        await query.edit_message_text("âš ï¸ You are not at the well.")
+
+# Function to move the next truck to the well
+async def move_next_to_well(context):
+    if len(staging_data["well"]) < WELL_LIMIT:
+        if staging_data["100"]:
+            next_truck = staging_data["100"].pop(0)
+            staging_data["well"].append((next_truck, "100"))
+        elif staging_data["4070"]:
+            next_truck = staging_data["4070"].pop(0)
+            staging_data["well"].append((next_truck, "4070"))
 
 # Function to display staging info
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = "📋 **Staging Information:**\n"
-    
+    msg = "ðŸ“‹ **Staging Information:**
+"
     for key, trucks in staging_data.items():
-        msg += f"➡️ **{key.upper()}**: {len(trucks)} trucks staged\n"
-
+        msg += f"âž¡ï¸ **{key.upper()}**: {len(trucks)} trucks staged
+"
     await update.message.reply_text(msg)
 
 # Main function to run the bot
@@ -92,9 +87,6 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(CommandHandler("stage", stage))
-    app.add_handler(CommandHandler("leave", leave))
-    app.add_handler(CommandHandler("callwell", callwell))
     app.add_handler(CommandHandler("staging", staging_info))
 
     print("Bot is running...")
