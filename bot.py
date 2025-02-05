@@ -13,11 +13,12 @@ admin_ids = [5767285152, 7116154394]  # Admin Telegram IDs
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🚛 4070", callback_data="4070")],
-        [InlineKeyboardButton("🚚 100", callback_data="100")]
+        [InlineKeyboardButton("🚚 100", callback_data="100")],
+        [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # New status button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Welcome! Choose your truck type:", reply_markup=reply_markup)
-
+    await update.message.reply_text("Welcome! Choose your truck type or view the current status:", reply_markup=reply_markup)
+    
 # Function to handle button clicks
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -25,7 +26,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     truck_type = query.data
 
-    if truck_type in ["4070", "100"]:
+    if truck_type == "view_status":
+        await view_status(update, context)
+    elif truck_type == "refresh_status":
+        await refresh_status(update, context)
+    elif truck_type in ["4070", "100"]:
         keyboard = [
             [InlineKeyboardButton("🛑 Yes, Chassis Out", callback_data=f"chassis_out_{truck_type}")],
             [InlineKeyboardButton("❌ No, Just Stage", callback_data=f"stage_{truck_type}")],
@@ -48,6 +53,39 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif truck_type == "back":
         await start(update, context)
 
+# Function to display truck status in real time
+async def view_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    well_status = "🟢 Running" if len(staging_data["well"]) > 0 else "🔴 Down"
+    
+    msg = "📊 **Current Trucking Status:**\n\n"
+    msg += f"🛢️ **Well Status:** {well_status}\n"
+    msg += f"🚛 **Trucks at the Well:** {len(staging_data['well'])}/{WELL_LIMIT}\n"
+    msg += f"🟠 **4070 Trucks Staged:** {len(staging_data['4070'])}\n"
+    msg += f"🟢 **100 Mesh Trucks Staged:** {len(staging_data['100'])}\n"
+
+    keyboard = [[InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(msg, reply_markup=reply_markup)
+
+# Function to handle refreshing the status view
+async def refresh_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    well_status = "🟢 Running" if len(staging_data["well"]) > 0 else "🔴 Down"
+
+    msg = "📊 **Updated Trucking Status:**\n\n"
+    msg += f"🛢️ **Well Status:** {well_status}\n"
+    msg += f"🚛 **Trucks at the Well:** {len(staging_data['well'])}/{WELL_LIMIT}\n"
+    msg += f"🟠 **4070 Trucks Staged:** {len(staging_data['4070'])}\n"
+    msg += f"🟢 **100 Mesh Trucks Staged:** {len(staging_data['100'])}\n"
+
+    keyboard = [[InlineKeyboardButton("🔄 Refresh Status", callback_data="refresh_status")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(msg, reply_markup=reply_markup)
+    
 # Function to process chassis out
 async def process_chassis_out(query, truck_type, user_id, context):
     truck_entry = f"{user_id} (CO)"  # Mark with CO
@@ -207,6 +245,7 @@ async def unlock_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
+    app.add_handler(CommandHandler("view_status", view_status))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(CommandHandler("staging", staging_info))
