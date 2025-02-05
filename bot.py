@@ -90,31 +90,30 @@ async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("âŒ You are not an admin.")
 
 # Function to display staging info with numbers
+# Function to display staging info with numbers
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "📋 **Staging Information:**\n\n"
 
     msg += "**WELL:**\n"
-    for i, truck in enumerate(staging_data["well"], 1):
-        msg += f"🔵 #{i}: Truck {truck}\n"
+    if staging_data["well"]:
+        for i, truck in enumerate(staging_data["well"], 1):
+            msg += f"🔵 #{i}: Truck {truck}\n"
+    else:
+        msg += "🔵 No trucks at the well.\n"
 
     msg += "\n**100 Mesh Staging:**\n"
-    for i, truck in enumerate(staging_data["100"], 1):
-        msg += f"🟢 #{i}: Truck {truck}\n"
+    if staging_data["100"]:
+        for i, truck in enumerate(staging_data["100"], 1):
+            msg += f"🟢 #{i}: Truck {truck}\n"
+    else:
+        msg += "🟢 No trucks staged.\n"
 
     msg += "\n**4070 Staging:**\n"
-    for i, truck in enumerate(staging_data["4070"], 1):
-        msg += f"🟠 #{i}: Truck {truck}\n"
-
-    await update.message.reply_text(msg)
-        msg += f"ðŸ”µ #{i}: Truck {truck}"
-
-    msg += "**100 Mesh Staging:**"
-    for i, truck in enumerate(staging_data["100"], 1):
-        msg += f"ðŸŸ¢ #{i}: Truck {truck}"
-
-    msg += "**4070 Staging:**"
-    for i, truck in enumerate(staging_data["4070"], 1):
-        msg += f"ðŸŸ  #{i}: Truck {truck}"
+    if staging_data["4070"]:
+        for i, truck in enumerate(staging_data["4070"], 1):
+            msg += f"🟠 #{i}: Truck {truck}\n"
+    else:
+        msg += "🟠 No trucks staged.\n"
 
     await update.message.reply_text(msg)
 
