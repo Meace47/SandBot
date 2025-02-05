@@ -14,12 +14,12 @@ user_id = update.message.from_user.id
 is_admin = user_id in admin_ids  # Check if user is admin
 
     # Buttons for all users
-    keyboard = [
+keyboard = [
         [InlineKeyboardButton("🚛 4070", callback_data="4070")],
         [InlineKeyboardButton("🚚 100", callback_data="100")],
         [InlineKeyboardButton("📊 View Status", callback_data="view_status")]  # Always visible
     ]
-    keyboard.append([InlineKeyboardButton("🔧 Admin Panel", callback_data="admin_panel")])
+keyboard.append([InlineKeyboardButton("🔧 Admin Panel", callback_data="admin_panel")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type or view the current status:", reply_markup=reply_markup)
@@ -39,7 +39,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text("❌ You are not an admin.")
         return
 
-    keyboard = [
+keyboard = [
         [InlineKeyboardButton("➕ Add Truck to Well", callback_data="add_truck_well")],
         [InlineKeyboardButton("➖ Remove Truck from Well", callback_data="remove_truck_well")],
         [InlineKeyboardButton("🟠 Add Truck to 4070 Staging", callback_data="add_truck_4070")],
