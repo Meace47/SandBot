@@ -89,7 +89,7 @@ keyboard = [
 ]
 reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await query.edit_message_text(msg, reply_markup=reply_markup)
+await query.edit_message_text(msg, reply_markup=reply_markup)
 
 # Function to process chassis out
 async def process_chassis_out(query, truck_type, user_id, context):
