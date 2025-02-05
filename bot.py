@@ -2,22 +2,23 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
 
-TOKEN = "8029048707:AAGfxjlxZAIPkPS93a9BZ9w-Ku8-ywT5I-M"
+TOKEN = "YOUR_BOT_TOKEN"
 
 # Truck staging and well management
 staging_data = {"4070": [], "100": [], "well": []}
 WELL_LIMIT = 5
-admin_ids = [123456789]  # Replace with actual admin Telegram IDs
+admin_ids = [5767285152, 7116154394]  # Admin Telegram IDs
 
 # Function to display truck options
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("ðŸš› 4070", callback_data="4070")],
-        [InlineKeyboardButton("ðŸ›» 100", callback_data="100")]
+        [InlineKeyboardButton("🚛 4070", callback_data="4070")],
+        [InlineKeyboardButton("🚚 100", callback_data="100")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Welcome! Choose your truck type:", reply_markup=reply_markup)
 
+# Function to handle button clicks
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -34,25 +35,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"You selected {truck_type}. Do you want to Chassis Out?", reply_markup=reply_markup)
 
     elif truck_type.startswith("chassis_out_"):
-        try:
-            _, selected_type = truck_type.split("_", 1)  
-            await process_chassis_out(query, selected_type, user_id, context)
-        except ValueError:
-            await query.edit_message_text("⚠️ Error processing your request. Please try again.")
+        _, selected_type = truck_type.split("_", 1)
+        await process_chassis_out(query, selected_type, user_id, context)
 
     elif truck_type.startswith("stage_"):
-        try:
-            _, selected_type = truck_type.split("_", 1)  
-            await process_staging(query, selected_type, user_id, context)  # New function to handle staging
-        except ValueError:
-            await query.edit_message_text("⚠️ Error processing your request. Please try again.")
+        _, selected_type = truck_type.split("_", 1)
+        await process_staging(query, selected_type, user_id, context)
 
     elif truck_type == "leave_well":
         await process_leave_well(query, user_id, context)
 
     elif truck_type == "back":
-        await start(update, context
+        await start(update, context)
 
+# Function to process chassis out
 async def process_chassis_out(query, truck_type, user_id, context):
     truck_entry = f"{user_id} (CO)"  # Mark with CO
 
@@ -63,18 +59,29 @@ async def process_chassis_out(query, truck_type, user_id, context):
         staging_data[truck_type].append(truck_entry)
         await query.edit_message_text(f"🚧 Well is full. You are staged as {truck_type} (CO).")
 
-# Function to process leaving well
+# Function to process staging (if user chooses not to chassis out)
+async def process_staging(query, truck_type, user_id, context):
+    truck_entry = f"{user_id}"  # No CO tag for normal staging
+
+    if len(staging_data["well"]) < WELL_LIMIT:
+        staging_data["well"].append(truck_entry)
+        await query.edit_message_text(f"✅ You have been sent to the well as {truck_type}.")
+    else:
+        staging_data[truck_type].append(truck_entry)
+        await query.edit_message_text(f"🚧 Well is full. You are staged as {truck_type}.")
+
+# Function to process leaving the well
 async def process_leave_well(query, user_id, context):
     for i, truck in enumerate(staging_data["well"]):
-        if str(user_id) in truck:  # Find the truck in the well
-            staging_data["well"].pop(i)  # Remove truck from well
+        if str(user_id) in truck:
+            staging_data["well"].pop(i)
             await query.edit_message_text("✅ You have left the well.")
-            await move_next_to_well(context)  # Move next truck in if available
+            await move_next_to_well(context)
             return
 
     await query.edit_message_text("⚠️ You are not at the well.")
 
-# Function to move the next truck to the well
+# Function to move the next truck to the well automatically
 async def move_next_to_well(context):
     if len(staging_data["well"]) < WELL_LIMIT:
         if staging_data["100"]:
@@ -83,6 +90,33 @@ async def move_next_to_well(context):
         elif staging_data["4070"]:
             next_truck = staging_data["4070"].pop(0)
             staging_data["well"].append(next_truck)
+
+# Function to display staging info with numbered trucks
+async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = "📋 **Staging Information:**\n\n"
+
+    msg += "**WELL:**\n"
+    if staging_data["well"]:
+        for i, truck in enumerate(staging_data["well"], 1):
+            msg += f"🔵 #{i}: Truck {truck}\n"
+    else:
+        msg += "🔵 No trucks at the well.\n"
+
+    msg += "\n**100 Mesh Staging:**\n"
+    if staging_data["100"]:
+        for i, truck in enumerate(staging_data["100"], 1):
+            msg += f"🟢 #{i}: Truck {truck}\n"
+    else:
+        msg += "🟢 No trucks staged.\n"
+
+    msg += "\n**4070 Staging:**\n"
+    if staging_data["4070"]:
+        for i, truck in enumerate(staging_data["4070"], 1):
+            msg += f"🟠 #{i}: Truck {truck}\n"
+    else:
+        msg += "🟠 No trucks staged.\n"
+
+    await update.message.reply_text(msg)
 
 # Admin function to manually add a truck to the well
 async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,7 +136,6 @@ async def add_well(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ You are not an admin.")
 
-# Function to display staging info with numbers
 # Function to display staging info with numbers
 async def staging_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "📋 **Staging Information:**\n\n"
